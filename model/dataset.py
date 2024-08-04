@@ -212,3 +212,13 @@ class InferenceDataset():
         mask_A = mask_A.squeeze(0)
         mask_B = mask_B.squeeze(0)
         return mask_A, mask_B, index, index_2
+
+def test():
+    from torch.utils.data import DataLoader
+    test_dataset = InferenceDataset(device='cuda', makeup_paths=['./data/makeup/1.jpg'], non_makeup_paths=['./data/nonmakeup/1.jpg'])
+    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    for i, data in enumerate(test_loader):
+        print(data)
+        break 
+
+if __name__ == '__main__': test()
