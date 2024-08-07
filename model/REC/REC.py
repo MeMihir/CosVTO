@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 from mscv import load_checkpoint
 
-from model.REC.dis import SpectralNorm
+from REC.dis import SpectralNorm
 
 class PosEnSine(nn.Module):
 
@@ -509,9 +509,9 @@ class BeautyREC(nn.Module):
                 style = torch.cat([style, xi], dim=1)
         return style
     
-    def load(self, path):
+    def load(self, path, device):
         load_dict = {
             'cleaner': self,
         }
-        load_checkpoint(load_dict, path, strict=False)
+        load_checkpoint(load_dict, path, strict=False, map_location=device)
         

@@ -213,6 +213,37 @@ class InferenceDataset():
         mask_B = mask_B.squeeze(0)
         return mask_A, mask_B, index, index_2
 
+    def rebound_box(self, mask_A, mask_B, mask_A_face):
+        mask_A = mask_A.unsqueeze(0)
+        mask_B = mask_B.unsqueeze(0)
+        mask_A_face = mask_A_face.unsqueeze(0)
+
+        index_tmp = torch.nonzero(mask_A, as_tuple=False)
+        # pdb.set_trace()
+        x_A_index = index_tmp[:, 2]
+        y_A_index = index_tmp[:, 3]
+        index_tmp = torch.nonzero(mask_B, as_tuple=False)
+        x_B_index = index_tmp[:, 2]
+        y_B_index = index_tmp[:, 3]
+        mask_A_temp = mask_A.copy_(mask_A)
+        mask_B_temp = mask_B.copy_(mask_B)
+        mask_A_temp[:, :, min(x_A_index) - 5:max(x_A_index) + 6, min(y_A_index) - 5:max(y_A_index) + 6] = \
+            mask_A_face[:, :, min(x_A_index) - 5:max(x_A_index) + 6, min(y_A_index) - 5:max(y_A_index) + 6]
+        mask_B_temp[:, :, min(x_B_index) - 5:max(x_B_index) + 6, min(y_B_index) - 5:max(y_B_index) + 6] = \
+            mask_A_face[:, :, min(x_B_index) - 5:max(x_B_index) + 6, min(y_B_index) - 5:max(y_B_index) + 6]
+
+
+
+        # mask_A_temp = mask_A_temp.squeeze(0)
+
+        mask_A = mask_A.squeeze(0)
+        mask_B = mask_B.squeeze(0)
+        
+        mask_A_face = mask_A_face.squeeze(0)
+        # mask_B_temp = mask_B_temp.squeeze(0)
+
+        return mask_A_temp, mask_B_temp
+
 def test():
     from torch.utils.data import DataLoader
     test_dataset = InferenceDataset(device='cuda', makeup_paths=['./data/makeup/1.jpg'], non_makeup_paths=['./data/nonmakeup/1.jpg'])

@@ -4,7 +4,7 @@ from tqdm import tqdm
 import numpy as np
 import cv2
 
-from model.REC.REC import BeautyREC
+from REC.REC import BeautyREC
 from dataset import InferenceDataset
 
 params = {
@@ -27,7 +27,7 @@ def main(args):
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0)
 
     model = BeautyREC(params).to(device)
-    model.load(args.model_path)
+    model.load(args.model_path, device)
     model.eval()
 
     with torch.no_grad():
@@ -53,4 +53,14 @@ def main(args):
             cv2.imwrite(f'{args.save_root}/{i}_pred.png', pred[:,:,::-1])
             
             
+if __name__ == '__main__':
+    import argparse
+    args = argparse.Namespace(
+        device="cpu",
+        makeup_paths=["data/makeup/1.jpg"],
+        non_makeup_paths=['data/nomakeup/1.jpg'],
+        model_path="model/checkpoints/BeautyREC.pt",
+        save_root="data/pred"
+    )
 
+    main(args)

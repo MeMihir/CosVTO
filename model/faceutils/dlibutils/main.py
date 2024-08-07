@@ -6,11 +6,19 @@ import numpy as np
 from PIL import Image
 import dlib
 import cv2
-from concern.image import resize_by_max
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(osp.split(osp.realpath(__file__))[0] + '/lms.dat')
 
+def resize_by_max(image, max_side=512, force=False):
+    h, w = image.shape[:2]
+    if max(h, w) < max_side and not force:
+        return image
+    ratio = max(h, w) / max_side
+
+    w = int(w / ratio + 0.5)
+    h = int(h / ratio + 0.5)
+    return cv2.resize(image, (w, h))
 
 def detect(image: Image) -> 'faces':
     image = np.asarray(image)
