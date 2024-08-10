@@ -37,7 +37,7 @@ def main(args):
             makeup_seg = data['makeup_seg'].to(device)
             nonmakeup_seg = data['nonmakeup_seg'].to(device)
 
-            pred = model(nonmakeup_img, makeup_img, nonmakeup_seg, makeup_seg)
+            pred = model(nonmakeup_img, makeup_img, makeup_seg, nonmakeup_seg)
 
             no_image = data['nonmakeup_img'][0].detach().cpu().numpy().transpose([1,2,0])/2+0.5
             no_image = (no_image.copy()*255).astype(np.uint8)
@@ -57,8 +57,8 @@ if __name__ == '__main__':
     import argparse
     args = argparse.Namespace(
         device="cpu",
-        makeup_paths=["data/makeup/1.jpg"],
-        non_makeup_paths=['data/nomakeup/1.jpg'],
+        makeup_paths=["data/wilddataset/images/makeup/15.jpg"],
+        non_makeup_paths=['data/wilddataset/images/non-makeup/15.jpg'],
         model_path="model/checkpoints/BeautyREC.pt",
         save_root="data/pred"
     )

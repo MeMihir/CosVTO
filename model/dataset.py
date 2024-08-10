@@ -105,6 +105,9 @@ class InferenceDataset():
         mask_B_eye_left = (mask == self.eyes_class[0]).float()
         mask_B_eye_right= (mask == self.eyes_class[1]).float()
 
+        if not ((mask_B_eye_left > 0).any() and \
+                (mask_B_eye_right > 0).any()):
+            return {}
         mask_B_eye_left, mask_B_eye_right = self.rebound_box(mask_B_eye_left[0], mask_B_eye_right[0], mask_B_face[0])
 
         mask_eyes = mask_B_eye_left + mask_B_eye_right
@@ -138,9 +141,9 @@ class InferenceDataset():
         mask_A_eye_right= (mask == self.eyes_class[1]).float()
 
 
-        # if not ((mask_A_eye_left > 0).any() and \
-        #         (mask_A_eye_right > 0).any()):
-        #     return {}
+        if not ((mask_A_eye_left > 0).any() and \
+                (mask_A_eye_right > 0).any()):
+            return {}
     
         # mask_eyes = (mask == self.eyes_class[0]).float() + (mask == self.eyes_class[1]).float()
         mask_A_eye_left, mask_A_eye_right = self.rebound_box(mask_A_eye_left[0], mask_A_eye_right[0], mask_A_face[0])
