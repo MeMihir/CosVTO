@@ -13,7 +13,33 @@ from .model import BiSeNet
 
 class FaceParser:
     def __init__(self, device="cuda"):
-        mapper = [0, 4, 2, 3, 1, 6, 0, 11, 12, 0, 8, 0, 13, 9, 10, 0, 0, 0, 0]
+        # mapper = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+        mapper = [0, 1, 2, 3, 4, 5, 0, 11, 12, 0,  6,  0,  9,  7, 10,  0,  0,  0,  0] # github issues
+        # mapper = [2, 2, 2, 2, 5, 6, 0, 0, 0, 10, 11, 12, 13, 14, 15, 0, 0, 18, 0]
+        # mapper = [0,4,16,17,1,6,19,19,19,19,8,12,9,13,15,19,19,18,19]
+        # mapper = [0, 4, 7, 2, 6, 1, 0, 0, 0, 0,  8, 11,  9, 13, 10,  0,  0, 12,  0] # mtdataset
+
+
+        #  back: 0
+        #  face: 1
+        #  left_brow: 2
+        #  right_brow: 3
+        #  left_eye: 4
+        #  right_eye: 5
+        #  __: 6
+        #   __: 7
+        #  __: 8
+        #  __ : 9
+        #  nose :10
+        #  mouth :11
+        #  upper_lip :12
+        #  lower_lip :13
+        #  neck :14
+        #  __ :15
+        #  __: 16
+        #  hair :17
+        # __ :18
+        # }
         self.device = device
         self.dic = torch.tensor(mapper, device=device)
         save_pth = osp.split(osp.realpath(__file__))[0] + '/resnet.pth'
