@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse
 from PIL import Image
 import io
 import numpy as np
-import cv2
 import torch
 from torchvision import transforms
 from dataset import preprocess_image
@@ -36,11 +35,12 @@ transform = transforms.Compose([
 ])
 
 @app.post("/apply-makeup/")
-async def apply_makeup(file: UploadFile = File(...)):
+async def apply_makeup(file: UploadFile = File(...), makeup_file: UploadFile = File(...)):
     # Read image
     image_bytes = await file.read()
+    makeup_bytes = await makeup_file.read()
     image = Image.open(io.BytesIO(image_bytes))
-    makeup_image = Image.open('/Users/mihir/Desktop/Projects/CosVTO/CosVTO/data/makeup/1.jpg')  # Load your makeup image
+    makeup_image = Image.open(io.BytesIO(makeup_bytes))
 
     # Apply model
     with torch.no_grad():
@@ -55,7 +55,6 @@ async def apply_makeup(file: UploadFile = File(...)):
     output_image = output_tensor[0].detach().cpu().numpy().transpose([1,2,0])/2+0.5
     output_image = (output_image.copy()*255).astype(np.uint8)
     output_image = output_image[:,:,::-1]
-    cv2.imwrite('output.jpg', output_image)
     
     # Send the processed image back
     output_pil = Image.fromarray(output_image)
