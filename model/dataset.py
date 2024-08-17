@@ -46,6 +46,158 @@ def to_var(x, requires_grad=True):
     else:
         return Variable(x, requires_grad=requires_grad).float()
 
+def preprocess_image(makeup_image: Image, non_makeup_image: Image, device: str) -> list[torch.Tensor]:
+    face_parse = futils.mask.FaceParser(device=device)
+    up_ratio = 0.6 / 0.85
+    down_ratio = 0.2 / 0.85
+    width_ratio = 0.2 / 0.85
+    img_size = 256
+    lip_class   = [7,9]
+    face_class  = [1,6]
+    eyes_class = [4,5]
+    transform = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+
+    face = futils.dlib.detect(makeup_image)
+    try:
+        face_on_image = face[0]
+    except:
+        return {}
+
+
+    image_makeup, face, crop_face = futils.dlib.crop(makeup_image, face_on_image, up_ratio, down_ratio, width_ratio)
+    np_image_makeup = np.array(image_makeup)
+    # pdb.set_trace()
+    mask = face_parse.parse(cv2.resize(np_image_makeup, (512, 512)))
+    mask = F.interpolate(mask.view(1, 1, 512, 512), (img_size, img_size), mode="nearest")
+    mask = mask.type(torch.uint8)
+    mask = to_var(mask, requires_grad=False).to(device)
+
+    mask_B_lip = (mask == lip_class[0]).float() + (mask == lip_class[1]).float()
+    mask_B_face = (mask == face_class[0]).float() + (mask == face_class[1]).float()
+    mask_B_eye_left = (mask == eyes_class[0]).float()
+    mask_B_eye_right= (mask == eyes_class[1]).float()
+
+    if not ((mask_B_eye_left > 0).any() and \
+            (mask_B_eye_right > 0).any()):
+        return {}
+    mask_B_eye_left, mask_B_eye_right = rebound_box(mask_B_eye_left[0], mask_B_eye_right[0], mask_B_face[0])
+
+    mask_eyes = mask_B_eye_left + mask_B_eye_right
+    mask_list = [mask_B_lip, mask_B_face, mask_eyes]
+    makeup_seg = torch.cat(mask_list, 0) 
+    makeup_seg = makeup_seg[:,0,:,:]
+
+    nonmakeface = futils.dlib.detect(non_makeup_image)
+    try:
+        face_on_image = nonmakeface[0]  
+    except:
+        return{} 
+    image_nonmakeup, face, crop_face = futils.dlib.crop(
+    non_makeup_image, face_on_image, up_ratio, down_ratio, width_ratio)
+    np_image_nomakeup = np.array(image_nonmakeup)
+    mask = face_parse.parse(cv2.resize(np_image_nomakeup, (512, 512)))
+
+    mask = F.interpolate(
+        mask.view(1, 1, 512, 512),
+        (img_size, img_size),
+        mode="nearest")
+    mask = mask.type(torch.uint8)
+    mask = to_var(mask, requires_grad=False).to(device)
+
+    
+    mask_A_lip = (mask == lip_class[0]).float() + (mask == lip_class[1]).float()
+    mask_A_face = (mask == face_class[0]).float() + (mask == face_class[1]).float()
+    mask_A_eye_left = (mask == eyes_class[0]).float()
+    mask_A_eye_right= (mask == eyes_class[1]).float()
+
+
+    if not ((mask_A_eye_left > 0).any() and \
+            (mask_A_eye_right > 0).any()):
+        return {}
+
+    # mask_eyes = (mask == eyes_class[0]).float() + (mask == eyes_class[1]).float()
+    mask_A_eye_left, mask_A_eye_right = rebound_box(mask_A_eye_left[0], mask_A_eye_right[0], mask_A_face[0])
+    # if (mask_A_eye_left + mask_A_eye_right).max()>1.5:
+    #     # print('error')
+    #     return {}
+
+    mask_eyes = mask_A_eye_left + mask_A_eye_right
+    mask_list = [mask_A_lip, mask_A_face, mask_eyes]
+    nonmakeup_seg = torch.cat(mask_list, 0) 
+    nonmakeup_seg = nonmakeup_seg[:,0,:,:]
+
+    mask_A_face, mask_B_face, index_A_skin, index_B_skin = mask_preprocess(mask_A_face, mask_B_face) 
+    mask_A_lip, mask_B_lip, index_A_lip, index_B_lip = mask_preprocess(mask_A_lip, mask_B_lip)
+    mask_A_eye_left, mask_B_eye_left, index_A_eye_left, index_B_eye_left = mask_preprocess(mask_A_eye_left, mask_B_eye_left)
+    mask_A_eye_right, mask_B_eye_right, index_A_eye_right, index_B_eye_right = mask_preprocess(mask_A_eye_right, mask_B_eye_right)
+
+    mask_A = {}
+    mask_A["mask_A_eye_left"] = mask_A_eye_left
+    mask_A["mask_A_eye_right"] = mask_A_eye_right
+    mask_A["index_A_eye_left"] = index_A_eye_left
+    mask_A["index_A_eye_right"] = index_A_eye_right
+    mask_A["mask_A_skin"] = mask_A_face
+    mask_A["index_A_skin"] = index_A_skin
+    mask_A["mask_A_lip"] = mask_A_lip
+    mask_A["index_A_lip"] = index_A_lip
+
+    mask_B = {}
+    mask_B["mask_B_eye_left"] = mask_B_eye_left
+    mask_B["mask_B_eye_right"] = mask_B_eye_right
+    mask_B["index_B_eye_left"] = index_B_eye_left
+    mask_B["index_B_eye_right"] = index_B_eye_right
+    mask_B["mask_B_skin"] = mask_B_face
+    mask_B["index_B_skin"] = index_B_skin
+    mask_B["mask_B_lip"] = mask_B_lip
+    mask_B["index_B_lip"] = index_B_lip
+
+    makeup_img = transform(image_makeup)
+    nonmakeup_img = transform(image_nonmakeup)
+
+    return makeup_seg, nonmakeup_seg, makeup_img, nonmakeup_img
+
+def rebound_box(mask_A, mask_B, mask_A_face):
+    mask_A = mask_A.unsqueeze(0)
+    mask_B = mask_B.unsqueeze(0)
+    mask_A_face = mask_A_face.unsqueeze(0)
+
+    index_tmp = torch.nonzero(mask_A, as_tuple=False)
+    # pdb.set_trace()
+    x_A_index = index_tmp[:, 2]
+    y_A_index = index_tmp[:, 3]
+    index_tmp = torch.nonzero(mask_B, as_tuple=False)
+    x_B_index = index_tmp[:, 2]
+    y_B_index = index_tmp[:, 3]
+    mask_A_temp = mask_A.copy_(mask_A)
+    mask_B_temp = mask_B.copy_(mask_B)
+    mask_A_temp[:, :, min(x_A_index) - 5:max(x_A_index) + 6, min(y_A_index) - 5:max(y_A_index) + 6] = \
+        mask_A_face[:, :, min(x_A_index) - 5:max(x_A_index) + 6, min(y_A_index) - 5:max(y_A_index) + 6]
+    mask_B_temp[:, :, min(x_B_index) - 5:max(x_B_index) + 6, min(y_B_index) - 5:max(y_B_index) + 6] = \
+        mask_A_face[:, :, min(x_B_index) - 5:max(x_B_index) + 6, min(y_B_index) - 5:max(y_B_index) + 6]
+    mask_A = mask_A.squeeze(0)
+    mask_B = mask_B.squeeze(0)
+    
+    mask_A_face = mask_A_face.squeeze(0)
+
+    return mask_A_temp, mask_B_temp
+
+def mask_preprocess(mask_A, mask_B):
+    index_tmp = torch.nonzero(mask_A, as_tuple=False)
+    x_A_index = index_tmp[:, 2]
+
+    y_A_index = index_tmp[:, 3]
+    index_tmp = torch.nonzero(mask_B, as_tuple=False)
+    x_B_index = index_tmp[:, 2]
+    y_B_index = index_tmp[:, 3]
+    index = [x_A_index, y_A_index, x_B_index, y_B_index]
+    index_2 = [x_B_index, y_B_index, x_A_index, y_A_index]
+    mask_A = mask_A.squeeze(0)
+    mask_B = mask_B.squeeze(0)
+    return mask_A, mask_B, index, index_2
 
 class InferenceDataset():
     def __init__(self, device, makeup_paths, non_makeup_paths):
